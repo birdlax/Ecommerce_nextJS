@@ -1,74 +1,100 @@
 // utils/authService.js
-const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT'; // ใส่ URL API หลักของคุณ (ไม่รวม /api ถ้ามี)
-
+const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:3000';
 async function fetchApi(endpoint, options = {}) {
-  const url = `${API_URL}${endpoint}`; // endpoint ควรจะขึ้นต้นด้วย / เช่น /register
+  const url = `${API_URL}${endpoint}`;
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-
   const config = {
     ...options,
     headers,
-    credentials: 'include',
+    credentials: 'include', // credentials จะถูกใส่ให้ทุก request ที่ผ่านฟังก์ชันนี้
   };
 
-  // สำหรับ Next.js 13+ App Router หรือถ้ามีการใช้ credentials ข้าม domain (อาจจะไม่ใช่กรณีนี้)
-  // config.credentials = 'include'; // บอกให้ browser ส่ง cookies ไปด้วย
-
-  const response = await fetch(url, config);
-
-  // กรณี Logout อาจจะไม่มี JSON body หรือ response status 204
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    if (!response.ok) {
-        // สำหรับ error ที่ไม่มี body เช่น 401 จาก logout ที่ไม่สำเร็จ
-        throw new Error(`API request failed with status ${response.status}`);
-    }
-    return null; // หรือ { success: true } ตามที่ API คืนค่า
+  console.log(`[fetchApi] Requesting: ${options.method || 'GET'} ${url}`);
+  if (options.body) {
   }
 
-  const data = await response.json();
+  const response = await fetch(url, config);
+  console.log(`[fetchApi] Response status for ${url}: ${response.status}`);
+
+  if (response.status === 204) {
+    if (!response.ok) { 
+        throw new Error(`API request ${response.statusText} with status ${response.status}`);
+    }
+    return null; // หรือ { success: true } ถ้า API Logout คืนแบบนั้น
+  }
+  
+  // ถ้า content-length เป็น 0 แต่ไม่ใช่ 204 และไม่ ok
+  if (response.headers.get('content-length') === '0' && !response.ok) {
+      throw new Error(`API request ${response.statusText} with status ${response.status} and no content`);
+  }
+
+
+  let data;
+  try {
+    data = await response.json(); // พยายาม parse JSON
+    // console.log(`[fetchApi] Response data for ${url}:`, data); // ระวัง log sensitive data
+  } catch (jsonError) {
+    // ถ้า parse JSON ไม่ได้ และ response ก็ไม่ ok
+    if (!response.ok) {
+      console.error(`[fetchApi] API response was not OK and not valid JSON for ${url}:`, response.status, response.statusText);
+      throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+    }
+    // ถ้า response ok แต่ parse JSON ไม่ได้ (ไม่ควรเกิดถ้า API ออกแบบดี)
+    console.error(`[fetchApi] API response was OK but not valid JSON for ${url}:`, jsonError);
+    throw new Error('Received malformed JSON response from server.');
+  }
 
   if (!response.ok) {
-    throw new Error(data.message || `API request failed with status ${response.status}`);
+    // ตอนนี้ data ควรจะเป็น JSON object ที่มี message หรือ error key
+    console.error(`[fetchApi] API Error for ${url}:`, data);
+    throw new Error(data.error || data.message || `API request failed with status ${response.status}`);
   }
   return data;
 }
 
-export const registerUser = async (userData) => {
-  // userData ควรเป็น object เช่น { name, email, password }
-  return fetchApi('/register', {
-    method: 'POST',
-    credentials: "include", 
-    body: JSON.stringify(userData),
-  });
-};
 
 export const loginUser = async (credentials) => {
-  // credentials ควรเป็น object เช่น { email, password }
-  // API login จะ set HttpOnly cookie และควรคืนข้อมูลผู้ใช้
-  return fetchApi('/login', {
+  console.log('[authService] Logging in user with email:', credentials.email);
+  return fetchApi('/login', { // สมมติ endpoint คือ /login ตามที่คุณให้มา
     method: 'POST',
-    credentials: "include", 
     body: JSON.stringify(credentials),
   });
 };
 
 export const logoutUser = async () => {
-  // API logout ควรจะ clear HttpOnly cookie ฝั่ง server
-  return fetchApi('/logout', {
+  console.log('[authService] Logging out user...');
+  return fetchApi('/logout', { // สมมติ endpoint คือ /logout
     method: 'POST', // หรือ GET ตามที่ API คุณกำหนด
-    credentials: "include", 
+    // ไม่จำเป็นต้องใส่ credentials: "include" ที่นี่อีก เพราะ fetchApi จัดการให้แล้ว
   });
 };
 
 export const getCurrentUser = async () => {
+  console.log('[authService] Getting current user from /profile/me');
   try {
-    const userData = await fetchApi('/profile/me');
-
-    return userData;
+    // Endpoint นี้ควรจะคืนข้อมูล user ถ้ามี session cookie ที่ valid
+    // หรือคืน 401 ถ้าไม่มี session / cookie ไม่ valid
+    return await fetchApi('/profile/me'); // Endpoint ที่คุณใช้คือ /profile/me
   } catch (error) {
-    return null;
+    // ถ้า fetchApi throw error (เช่น 401, 403, network error) จะมาเข้า catch นี้
+    console.warn('[authService] getCurrentUser failed:', error.message);
+    return null; // คืน null เพื่อให้ AuthContext รู้ว่าไม่ authenticated
   }
+};
+
+export const registerUser = async (userData) => {
+  const payload = {
+    first_name: userData.firstName,
+    last_name: userData.lastName,
+    email: userData.email,
+    password: userData.password,
+  };
+  console.log('[authService] Registering user with payload:', payload);
+  return fetchApi('/register', { // Endpoint คือ /register
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 };
