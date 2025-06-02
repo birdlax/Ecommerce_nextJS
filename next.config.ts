@@ -1,37 +1,27 @@
-
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true, // หรือการตั้งค่าอื่นๆ ที่คุณมีอยู่แล้ว
+  reactStrictMode: true, // หรือการตั้งค่าอื่นๆ ที่คุณมี
   images: {
+    domains: ['localhost'],
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '', // ปล่อยว่างถ้าเป็น port มาตรฐาน (https คือ 443)
-        pathname: '/**', // อนุญาตทุก path ภายใต้ hostname นี้
+        protocol: 'http', // หรือ 'https' ถ้า API ของคุณใช้ HTTPS
+        hostname: 'localhost',
+        port: '3000', // <--- **ระบุ Port ของ Golang API ของคุณ**
+        pathname: '/uploads/**', // อนุญาตทุก path ภายใต้ /uploads/
+                                // หรือจะระบุให้ละเอียดกว่านี้ก็ได้ เช่น '/uploads/1/**'
       },
+      // (Optional) ถ้าคุณยังใช้รูปจาก picsum.photos ด้วย ก็เพิ่ม pattern นี้เข้าไป
       {
         protocol: 'https',
-        hostname: 'www.foodandwine.com', // เพิ่ม hostname นี้จากข้อมูล JSON
-        port: '',
-        pathname: '/**',
+        hostname: 'picsum.photos',
+        // port: '', // ไม่ต้องใส่ถ้าเป็น default port (80/443)
+        // pathname: '/**', // อนุญาตทุก path
       },
-      {
-        protocol: 'https',
-        hostname: 'www.andaseat-th.com', // เพิ่ม hostname นี้จากข้อมูล JSON
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'cdn.thewirecutter.com', // เพิ่ม hostname นี้จากข้อมูล JSON
-        port: '',
-        pathname: '/**',
-      },
-      // หากมี hostname อื่นๆ จาก image_url อีก ก็เพิ่มเข้ามาในลักษณะเดียวกัน
     ],
   },
 };
 
 module.exports = nextConfig;
+
+

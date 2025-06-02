@@ -1,9 +1,6 @@
 // utils/addressService.js (หรือชื่ออื่นที่เหมาะสม)
 
 const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT';
-
-// Helper function สำหรับ fetch API (ควรจะเหมือนกับ fetchWithCredentials ที่เราใช้ใน orderService หรือ authService)
-// ตรวจสอบให้แน่ใจว่ามีการใส่ credentials: 'include'
 async function addressFetchApi(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`; // Endpoint ควรจะขึ้นต้นด้วย /api/addresses
   const headers = {

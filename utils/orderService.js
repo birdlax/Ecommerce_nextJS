@@ -2,7 +2,6 @@
 
 const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT';
 
-// Helper function สำหรับ fetch API (เปลี่ยนชื่อจาก fetchWithCredentials เป็น orderFetchApi ให้สอดคล้องกัน)
 async function orderFetchApi(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
   const headers = {
@@ -70,7 +69,6 @@ export const cancelUserOrder = async (orderId) => {
  */
 export const markOrderAsPaid = async (orderId, paymentData = {}) => {
   console.log(`[orderService] Marking order ${orderId} as paid with data:`, paymentData);
-  // แก้ไข: เปลี่ยน fetchWithCredentials เป็น orderFetchApi
   return orderFetchApi('/pay', {
     method: 'PUT',
     body: JSON.stringify({
@@ -93,36 +91,3 @@ export const processCheckout = async (checkoutData) => {
 };
 
 
-// --- Admin Order Functions ---
-export const adminGetAllOrders = async () => {
-  console.log('[orderService] Admin: Getting all orders from /orders');
-  return orderFetchApi('/orders'); // GET /orders (Admin)
-};
-
-// ฟังก์ชันนี้มีอยู่แล้ว แต่ getOrderDetails ด้านบนสำหรับ user จะใช้ path เดียวกัน
-// ถ้า API แยก path สำหรับ admin get order by id ก็ให้ใช้คนละฟังก์ชัน
-// export const adminGetOrderById = async (orderId) => {
-//   console.log(`[orderService] Admin: Getting order by ID: ${orderId} from /order/${orderId}`);
-//   return orderFetchApi(`/order/${orderId}`);
-// };
-
-export const adminUpdateOrder = async (orderId, updateData) => {
-  console.log(`[orderService] Admin: Updating order ID: ${orderId} with data:`, updateData);
-  return orderFetchApi(`/order/${orderId}`, {
-    method: 'PUT',
-    body: JSON.stringify(updateData),
-  });
-};
-
-export const adminDeleteOrder = async (orderId) => {
-  console.log(`[orderService] Admin: Deleting order ID: ${orderId}`);
-  return orderFetchApi(`/order/${orderId}`, {
-    method: 'DELETE',
-  });
-};
-
-// คุณอาจจะต้องเพิ่มฟังก์ชันสำหรับ GET /revenue ด้วยถ้าจะใช้
-export const getRevenueData = async () => {
-    console.log('[orderService] Getting revenue data from /revenue');
-    return orderFetchApi('/revenue');
-};
