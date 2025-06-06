@@ -2,7 +2,7 @@
 
 // สมมติว่าคุณมี fetchApi helper กลาง ที่จัดการเรื่อง auth/credentials
 // และ API_URL ถูก define ในนั้น หรือใน environment variables ที่ fetchApi เข้าถึงได้
-import { fetchApi } from './authService';
+import { fetchApi } from './api';
 
 /**
  * (Admin) ดึงข้อมูลสินค้าทั้งหมด

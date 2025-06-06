@@ -1,5 +1,5 @@
 // utils/productService.js
-// import { fetchApi } from './authService';
+// import { fetchApi } from './api';
 async function fetchApi(endpoint, options = {}) {
   const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT';
   const url = `${API_URL}${endpoint}`;

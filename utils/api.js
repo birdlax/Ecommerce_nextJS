@@ -1,57 +1,134 @@
-// const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:3000';
+// utils/api.js
 
-// async function fetchApi(endpoint, options = {}) {
-//   const url = `${API_URL}${endpoint}`;
-//   const headers = {
-//     'Content-Type': 'application/json',
-//     ...options.headers,
-//   };
-//   const config = {
-//     ...options,
-//     headers,
-//     credentials: 'include', 
-//   };
-
-//   console.log(`[fetchApi] Requesting: ${options.method || 'GET'} ${url}`);
-//   if (options.body) {
-//   }
-
-//   const response = await fetch(url, config);
-//   console.log(`[fetchApi] Response status for ${url}: ${response.status}`);
-
-//   if (response.status === 204) {
-//     if (!response.ok) { 
-//         throw new Error(`API request ${response.statusText} with status ${response.status}`);
-//     }
-//     return null; // หรือ { success: true } ถ้า API Logout คืนแบบนั้น
-//   }
-  
-//   // ถ้า content-length เป็น 0 แต่ไม่ใช่ 204 และไม่ ok
-//   if (response.headers.get('content-length') === '0' && !response.ok) {
-//       throw new Error(`API request ${response.statusText} with status ${response.status} and no content`);
-//   }
+const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL;
+export async function fetchApi(endpoint, options = {}) {
+  const url = `${API_URL}${endpoint}`;
 
 
-//   let data;
-//   try {
-//     data = await response.json(); // พยายาม parse JSON
-//     // console.log(`[fetchApi] Response data for ${url}:`, data); // ระวัง log sensitive data
-//   } catch (jsonError) {
-//     // ถ้า parse JSON ไม่ได้ และ response ก็ไม่ ok
-//     if (!response.ok) {
-//       console.error(`[fetchApi] API response was not OK and not valid JSON for ${url}:`, response.status, response.statusText);
-//       throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
-//     }
-//     // ถ้า response ok แต่ parse JSON ไม่ได้ (ไม่ควรเกิดถ้า API ออกแบบดี)
-//     console.error(`[fetchApi] API response was OK but not valid JSON for ${url}:`, jsonError);
-//     throw new Error('Received malformed JSON response from server.');
-//   }
+  // --- แก้ไขส่วน Headers ---
 
-//   if (!response.ok) {
-//     // ตอนนี้ data ควรจะเป็น JSON object ที่มี message หรือ error key
-//     console.error(`[fetchApi] API Error for ${url}:`, data);
-//     throw new Error(data.error || data.message || `API request failed with status ${response.status}`);
-//   }
-//   return data;
-// }
-// export { fetchApi };
+  const defaultHeaders = {};
+
+  if (!(options.body instanceof FormData)) {
+    // <--- **ตรวจสอบว่าเป็น FormData หรือไม่**
+
+    // ตั้ง Content-Type เป็น application/json ต่อเมื่อ body ไม่ใช่ FormData
+
+    defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  // --- สิ้นสุดการแก้ไขส่วน Headers ---
+
+
+  const headers = {
+    ...defaultHeaders,
+
+    ...options.headers,
+  };
+
+  const config = {
+    ...options,
+    headers,
+    credentials: 'include',
+  };
+  // ถ้า body เป็น FormData, Content-Type header จะถูกลบออก (ถ้าเผลอใส่มาใน defaultHeaders)
+  // หรือจะปล่อยให้ browser จัดการเองโดยไม่ใส่ Content-Type ใน defaultHeaders เลยก็ได้ถ้า body เป็น FormData
+  if (options.body instanceof FormData) {
+    delete config.headers["Content-Type"]; // <--- **สำคัญ: ลบ Content-Type ที่อาจจะตั้งไว้ ถ้า body คือ FormData**
+  }
+  console.log(`[fetchApi] Requesting: ${config.method || "GET"} ${url}`);
+  if (options.body && !(options.body instanceof FormData)) {
+    // Log body ถ้าไม่ใช่ FormData
+    // console.log(`[fetchApi] Request Body:`, options.body); // ระวัง log sensitive data
+  } else if (options.body instanceof FormData) {
+    // console.log(`[fetchApi] Sending FormData body (content not logged for brevity)`);
+  }
+
+  const response = await fetch(url, config);
+  console.log(`[fetchApi] Response status for ${url}: ${response.status}`);
+
+  if (response.status === 204) {
+    // No Content
+    if (!response.ok && response.status !== 204) {
+      // response.ok จะ false สำหรับ 204 ในบาง client
+      console.error(
+        `[fetchApi] API request for ${url} returned ${response.status} ${response.statusText} (expected 204)`
+      );
+      throw new Error(
+        `API request ${response.statusText} with status ${response.status}`
+      );
+    }
+
+    return null;
+  }
+  if (response.headers.get("content-length") === "0" && !response.ok) {
+    console.error(
+      `[fetchApi] API request for ${url} returned ${response.status} ${response.statusText} with no content`
+    );
+    throw new Error(
+      `API request ${response.statusText} with status ${response.status} and no content`
+    );
+  }
+
+  let data;
+  try {
+    // ตรวจสอบ Content-Type ของ response ก่อนพยายาม parse เป็น JSON
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      // ถ้าไม่ใช่ JSON (เช่น text/html สำหรับ error page ของ server)
+      // ให้พยายามอ่านเป็น text แล้ว throw error
+      const textData = await response.text();
+      if (!response.ok) {
+        console.error(
+          `[fetchApi] API Error (Non-JSON Response) for ${url}: Status ${
+            response.status
+          }, Body: ${textData.substring(0, 100)}...`
+        );
+        throw new Error(
+          textData || `API request failed with status ${response.status}`
+        );
+      }
+
+      data = textData; // หรือจะ throw error ก็ได้
+    }
+  } catch (parseError) {
+    if (!response.ok) {
+      console.error(
+        `[fetchApi] API response was not OK and failed to parse for ${url}:`,
+        response.status,
+        response.statusText,
+        parseError
+      );
+      try {
+        const errorText = await response.text();
+        throw new Error(
+          errorText ||
+            `API request failed with status ${response.status}: ${response.statusText}`
+        );
+      } catch (textError) {
+        throw new Error(
+          `API request failed with status ${response.status}: ${response.statusText} (and response body could not be read)`
+        );
+      }
+    }
+
+    console.error(
+      `[fetchApi] API response was OK but not valid JSON for ${url}:`,
+      parseError
+    );
+    throw new Error("Received malformed JSON response from server.");
+  }
+
+  if (!response.ok) {
+    console.error(`[fetchApi] API Error (parsed) for ${url}:`, data);
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        `API request failed with status ${response.status}`
+    );
+  }
+
+  return data;
+}
