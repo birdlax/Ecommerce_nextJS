@@ -1,6 +1,4 @@
 // utils/cartService.js
-
-// ถ้ายังไม่มี fetchApi กลาง สามารถใช้ตัวอย่างนี้ได้:
 const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT';
 
 async function cartFetchApi(endpoint, options = {}) {
@@ -30,16 +28,16 @@ async function cartFetchApi(endpoint, options = {}) {
   }
   return data;
 }
-// จบส่วน fetchApi ตัวอย่าง
+
 
 export const getCart = async () => {
-  return cartFetchApi('/cart'); // GET /cart
+  return cartFetchApi("/cart"); // GET /cart
 };
 
 export const addItemToCart = async (productId, quantity) => {
   // POST /cart/item - body: { product_id, quantity }
-  return cartFetchApi('/cart/item', {
-    method: 'POST',
+  return cartFetchApi("/cart/item", {
+    method: "POST",
     body: JSON.stringify({ product_id: productId, quantity }),
   });
 };
@@ -47,28 +45,28 @@ export const addItemToCart = async (productId, quantity) => {
 export const removeItemCompletelyFromCart = async (productId) => {
   // DELETE /cart/items/:product_id
   return cartFetchApi(`/cart/items/${productId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 };
 
 export const incrementCartItem = async (productId) => {
   // POST /cart/item/:product_id - เพิ่ม 1 ชิ้น
   return cartFetchApi(`/cart/item/${productId}`, {
-    method: 'POST',
+    method: "POST",
   });
 };
 
 export const decrementCartItem = async (productId) => {
   // DELETE /cart/itemx/:product_id - ลด 1 ชิ้น
   return cartFetchApi(`/cart/itemx/${productId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 };
 
 // ฟังก์ชันสำหรับ Checkout จะทำทีหลัง
 export const checkoutCart = async (checkoutData) => {
-  return cartFetchApi('/cart/checkout', {
-    method: 'POST',
+  return cartFetchApi("/cart/checkout", {
+    method: "POST",
     body: JSON.stringify(checkoutData),
   });
 };

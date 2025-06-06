@@ -1,36 +1,6 @@
 // utils/orderService.js
+import { fetchApi } from './authService';
 
-const API_URL = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:YOUR_GO_API_PORT';
-
-async function orderFetchApi(endpoint, options = {}) {
-  const url = `${API_URL}${endpoint}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  const config = {
-    ...options,
-    headers,
-    credentials: 'include',
-  };
-
-  const response = await fetch(url, config);
-
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    if (!response.ok) {
-      let errorPayload = { message: `API request failed with status ${response.status}` };
-      try { errorPayload = await response.json(); } catch (e) { /* ignore if body is not json */ }
-      throw new Error(errorPayload.message || `API request failed with status ${response.status}`);
-    }
-    return { success: true };
-  }
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || `API request failed with status ${response.status}`);
-  }
-  return data;
-}
 
 /**
  * ดึงรายการคำสั่งซื้อทั้งหมดของผู้ใช้ที่ login อยู่
@@ -38,7 +8,7 @@ async function orderFetchApi(endpoint, options = {}) {
  */
 export const getUserOrders = async () => {
   console.log('[orderService] Getting user orders from /order');
-  return orderFetchApi('/orderalls'); //order ถ้าจะดึงแค่ order ที่กำลังซื้อ
+  return fetchApi('/order'); //order ถ้าจะดึงแค่ order ที่กำลังซื้อ
 };
 
 /**
@@ -48,7 +18,7 @@ export const getUserOrders = async () => {
  */
 export const getOrderDetails = async (orderId) => { // <<--- **เพิ่มฟังก์ชันนี้และ Export**
   console.log(`[orderService] Getting order details for ID: ${orderId} from /order/${orderId}`);
-  return orderFetchApi(`/order/${orderId}`);
+  return  fetchApi(`/order/${orderId}`);
 };
 
 /**
@@ -57,7 +27,7 @@ export const getOrderDetails = async (orderId) => { // <<--- **เพิ่ม�
  */
 export const cancelUserOrder = async (orderId) => {
   console.log(`[orderService] Cancelling order ID: ${orderId}`);
-  return orderFetchApi('/orders/cancel', {
+  return  fetchApi('/order/cancel', {
     method: 'PUT',
     body: JSON.stringify({ order_id: orderId }), // ตรวจสอบ body ที่ API ต้องการ
   });
@@ -69,7 +39,7 @@ export const cancelUserOrder = async (orderId) => {
  */
 export const markOrderAsPaid = async (orderId, paymentData = {}) => {
   console.log(`[orderService] Marking order ${orderId} as paid with data:`, paymentData);
-  return orderFetchApi('/pay', {
+  return  fetchApi('/order/pay', {
     method: 'PUT',
     body: JSON.stringify({
       order_id: orderId,
@@ -84,7 +54,7 @@ export const markOrderAsPaid = async (orderId, paymentData = {}) => {
  */
 export const processCheckout = async (checkoutData) => {
   console.log('[orderService] Processing checkout with data:', checkoutData);
-  return orderFetchApi('/cart/checkout', {
+  return  fetchApi('/cart/checkout', {
     method: 'POST',
     body: JSON.stringify(checkoutData),
   });

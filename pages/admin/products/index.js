@@ -26,46 +26,69 @@ const PlusIcon = () => (
         <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
     </svg>
 );
+const PlaceholderImageIcon = () => ( // Icon สำหรับ Placeholder
+    <svg className="w-full h-full text-slate-400 dark:text-slate-500 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+);
 // --------------------------
 
-const ProductRow = ({ product, onDelete, currentAdminId }) => ( // เพิ่ม currentAdminId ถ้า Product มี admin_id
-  <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150">
-    <td className="px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100">{product.ID}</td>
-    <td className="px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 flex-shrink-0 bg-slate-200 dark:bg-slate-700 rounded-md overflow-hidden">
-          {product.image_url ? (
-            <Image src={product.image_url} alt={product.name || 'Product Image'} width={40} height={40} className="object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">No Img</div>
-          )}
-        </div>
-        <span className="text-sm text-slate-700 dark:text-slate-200 font-medium truncate max-w-[150px] sm:max-w-xs" title={product.name}>
-          {product.name || 'N/A'}
-        </span>
-      </div>
-    </td>
-    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-      {product.category?.name || 'N/A'}
-    </td>
-    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 text-right">
-      {product.price?.toLocaleString('th-TH', { style: 'currency', currency: 'THB' }) || 'N/A'}
-    </td>
-    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 text-center">{product.quantity ?? 'N/A'}</td>
-    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-3">
-      <Link href={`/admin/products/edit/${product.ID}`} className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
-        แก้ไข
-      </Link>
-      {/* อาจจะเพิ่มเงื่อนไขการลบ เช่น Admin ลบสินค้าที่ตัวเองสร้างเท่านั้น (ถ้า product object มี admin_id) */}
-      <button
-        onClick={() => onDelete(product.ID, product.name)}
-        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-      >
-        ลบ
-      </button>
-    </td>
-  </tr>
-);
+const ProductRow = ({ product, onDelete, currentAdminId }) => {
+    // --- VVVVVV การจัดการรูปภาพ VVVVVV ---
+    const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL  ;
+    const placeholderProductImage = '/images/placeholder-product-thumb.png'; // สร้างไฟล์นี้ใน public/images
+
+    const primaryImageObject = product.images && product.images.length > 0
+                               ? product.images[0] // เอารูปแรก
+                               : null;
+    const imageUrl = primaryImageObject
+                     ? `${baseApiUrl}/${primaryImageObject.path.replace(/^\.\//, '')}`
+                     : placeholderProductImage; // ใช้ Placeholder ถ้าไม่มีรูป
+    // --- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ---
+
+    return (
+      <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150">
+        <td className="px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100">{product.ID}</td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex-shrink-0 bg-slate-200 dark:bg-slate-700 rounded-md overflow-hidden flex items-center justify-center">
+              {/* --- VVVVVV แสดงรูปภาพโดยใช้ imageUrl ที่สร้างขึ้น VVVVVV --- */}
+              <Image 
+                src={imageUrl} 
+                alt={product.name || 'Product Image'} 
+                width={40} 
+                height={40} 
+                className="object-cover"
+                onError={(e) => { // Fallback ถ้าโหลดรูปไม่ได้
+                    if (e.target.src !== placeholderProductImage) {
+                        e.target.srcset = placeholderProductImage;
+                        e.target.src = placeholderProductImage;
+                    }
+                }}
+              />
+              {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
+            </div>
+            <span className="text-sm text-slate-700 dark:text-slate-200 font-medium truncate max-w-[150px] sm:max-w-xs" title={product.name}>
+              {product.name || 'N/A'}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+          {product.category?.name || 'N/A'}
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 text-right">
+          {product.price?.toLocaleString('th-TH', { style: 'currency', currency: 'THB' }) || 'N/A'}
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 text-center">{product.quantity ?? 'N/A'}</td>
+        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-3">
+          <Link href={`/admin/products/edit/${product.ID}`} className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+            แก้ไข
+          </Link>
+          <button onClick={() => onDelete(product.ID, product.name)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">ลบ</button>
+        </td>
+      </tr>
+    );
+};
 
 const ManageProductsPageContent = () => {
   const { isAuthenticated, isLoading: authIsLoading, isAdmin, user: adminUser } = useAuth();
@@ -175,7 +198,47 @@ const ManageProductsPageContent = () => {
     }
   };
 
-  const handleDeleteProduct = async (productId, productName) => { /* ... (เหมือนเดิม) ... */ };
+  const handleDeleteProduct = async (productId, productName) => {
+    if (!productId) {
+        console.error("Delete Error: Product ID is missing.");
+        setActionMessage({ type: 'error', text: 'Product ID ไม่ถูกต้อง ไม่สามารถลบได้' });
+        return;
+    }
+    if (!window.confirm(`คุณต้องการลบสินค้า "${productName || 'Product'}" (ID: ${productId}) ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+        return;
+    }
+
+    setActionMessage({ type: '', text: '' }); // เคลียร์ message เก่า
+    setLoadingData(true); // หรือจะใช้ isDeleting state แยกต่างหาก
+    try {
+        console.log(`[AdminProductsPage] Attempting to delete product ID: ${productId}`);
+        await adminDeleteProduct(String(productId)); // เรียก service function
+        setActionMessage({ type: 'success', text: `สินค้า "${productName || 'Product'}" (ID: ${productId}) ถูกลบเรียบร้อยแล้ว` });
+        
+        // Refresh รายการสินค้าหลังจากลบสำเร็จ (อาจจะอยู่ที่หน้าปัจจุบัน หรือไปหน้าแรก)
+        // ถ้าต้องการให้ refresh หน้าปัจจุบัน และ pagination อาจจะเปลี่ยน (เช่น ลบ item สุดท้ายของหน้า)
+        // อาจจะต้องมี logic คำนวณหน้าใหม่ที่จะไป
+        let newPageToFetch = paginationData.currentPage;
+        if (products.length === 1 && paginationData.currentPage > 1) { // ถ้าเป็น item สุดท้ายของหน้าที่ไม่ใช่หน้าแรก
+            newPageToFetch = paginationData.currentPage - 1;
+        }
+        
+        // ถ้ามีการ filter category อยู่ ให้ส่ง category id ไปด้วย
+        const currentCategoryFilter = router.query.category || ''; 
+        await fetchAdminProducts(newPageToFetch, String(currentCategoryFilter)); 
+
+        // อัปเดต URL ถ้าหน้าเปลี่ยน
+        if (newPageToFetch !== paginationData.currentPage) {
+            router.push(`/admin/products?page=${newPageToFetch}${currentCategoryFilter ? `&category=${currentCategoryFilter}` : ''}`, undefined, { shallow: true });
+        }
+
+    } catch (err) {
+        console.error(`[AdminProductsPage] Failed to delete product ID ${productId}:`, err);
+        setActionMessage({ type: 'error', text: err.message || `เกิดข้อผิดพลาดในการลบสินค้า "${productName || 'Product'}"` });
+        setLoadingData(false); // หยุด loading ถ้า error
+    }
+    // setLoadingData(false) จะถูกเรียกใน finally ของ fetchAdminProducts ถ้าสำเร็จ
+  };
 
   const storeName = "ชื่อร้านของคุณ";
 

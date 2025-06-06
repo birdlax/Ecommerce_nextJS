@@ -44,7 +44,7 @@ const ProductDetailCard = ({ product }) => {
 
   // State for the currently displayed main image
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:3000';
+  const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL  ;
 
   // Determine image URLs
   const images = product?.images || [];
@@ -295,7 +295,7 @@ const ProductDetailPage = ({ product, error }) => {
         <meta name="description" content={product?.description || `รายละเอียดสินค้า ${product?.name}`} />
         {/* ... (OG Tags เหมือนเดิม, ตรวจสอบว่า product?.images[0]?.path ถูกใช้ถ้าต้องการรูปแรก) ... */}
         {product?.images && product.images.length > 0 && 
-            <meta property="og:image" content={`${process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:3000'}/${product.images[0].path.replace(/^\.\//, '')}`} />
+            <meta property="og:image" content={`${process.env.NEXT_PUBLIC_GOLANG_API_URL  }/${product.images[0].path.replace(/^\.\//, '')}`} />
         }
       </Head>
 

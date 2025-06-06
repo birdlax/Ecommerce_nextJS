@@ -6,21 +6,33 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/Layout/AdminLayout';
-import { adminGetOrderById, adminUpdateOrder } from '@/utils/adminService'; // ตรวจสอบ Path Alias
+import { adminGetOrderById, adminUpdateOrder } from '@/utils/adminService';
 
 const ArrowLeftIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true" >
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
   </svg>
 );
 
 const LoadingSpinnerIcon = () => (
-    <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
+  <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
 );
 
+const LoadingSpinnerPage = () => (
+  <div className="min-h-[calc(100vh-10rem)] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
+    <div className="flex items-center">
+      <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p className="ml-3 text-lg text-slate-700 dark:text-slate-300">กำลังโหลด...</p>
+    </div>
+    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">กรุณารอสักครู่</p>
+  </div>
+);
 
 const EditOrderPageContent = () => {
   const { isAuthenticated, isLoading: authIsLoading, isAdmin, user: adminUser } = useAuth();
@@ -30,10 +42,19 @@ const EditOrderPageContent = () => {
   const [order, setOrder] = useState(null);
   const [loadingPage, setLoadingPage] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pageError, setPageError] = useState(''); // สำหรับ error ตอนโหลดข้อมูลหน้า
-  const [formError, setFormError] = useState(''); // สำหรับ error จากการ submit form update status
+  const [pageError, setPageError] = useState('');
+  const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [imageLoadErrors, setImageLoadErrors] = useState({});
+
+  const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL  ;
+  const placeholderImageUrl = '/images/placeholder-product-square.png';
+
+  // Handler for image load error
+  const handleImageLoadError = (itemId) => {
+    setImageLoadErrors(prev => ({ ...prev, [itemId]: true }));
+  };
 
   const fetchOrderDetails = useCallback(async (id) => {
     if (!isAuthenticated || !isAdmin || !id || typeof id !== 'string' || id.trim() === '') {
@@ -43,10 +64,12 @@ const EditOrderPageContent = () => {
       setLoadingPage(false);
       return;
     }
+
     setLoadingPage(true);
     setPageError('');
     setSuccessMessage('');
     setFormError('');
+
     try {
       console.log(`[AdminEditOrder] Fetching order details for ID: ${id}`);
       const data = await adminGetOrderById(id);
@@ -63,7 +86,7 @@ const EditOrderPageContent = () => {
     } finally {
       setLoadingPage(false);
     }
-  }, [isAuthenticated, isAdmin, router.isReady]); // เพิ่ม router.isReady
+  }, [isAuthenticated, isAdmin, router.isReady]);
 
   useEffect(() => {
     if (!authIsLoading) {
@@ -91,13 +114,15 @@ const EditOrderPageContent = () => {
       setFormError("กรุณาเลือกสถานะใหม่ หรือข้อมูลคำสั่งซื้อไม่ถูกต้อง");
       return;
     }
+
     setIsSubmitting(true);
     setFormError('');
     setSuccessMessage('');
+
     try {
-      await adminUpdateOrder(String(order.ID), { status: newStatus }); // ส่ง order.ID เป็น string
+      await adminUpdateOrder(String(order.ID), { status: newStatus });
       setSuccessMessage(`อัปเดตสถานะคำสั่งซื้อ #${order.ID} เป็น "${newStatus}" สำเร็จแล้ว`);
-      fetchOrderDetails(String(order.ID)); // Refresh ข้อมูล
+      fetchOrderDetails(String(order.ID));
     } catch (err) {
       console.error("Admin: Failed to update order status:", err);
       setFormError(err.message || 'ไม่สามารถอัปเดตสถานะคำสั่งซื้อได้');
@@ -114,40 +139,49 @@ const EditOrderPageContent = () => {
   const primaryButtonClasses = `${buttonBaseClasses} bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500`;
   const secondaryButtonClasses = `${buttonBaseClasses} bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-600 dark:text-slate-100 dark:hover:bg-slate-500 focus:ring-slate-400`;
 
-  // --- UI Rendering Logic ---
-  if (authIsLoading || (!router.isReady && !pageError)) { // รอ auth หรือ router (ถ้ายังไม่มี error)
-    return <div className="p-6 text-center text-slate-500 dark:text-slate-400">กำลังโหลดหน้า...</div>;
+  // Loading states
+  if (authIsLoading || (!router.isReady && !pageError)) {
+    return <LoadingSpinnerPage />;
   }
+
   if (!isAuthenticated || !isAdmin) {
-    return <div className="p-6 text-center text-red-500 dark:text-red-400">{pageError || "คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้"}</div>;
+    return (
+      <div className="p-6 text-center text-red-500 dark:text-red-400">
+        {pageError || "คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้"}
+      </div>
+    );
   }
-  // ถ้า router พร้อมแล้ว แต่ยังโหลด order data อยู่ (และยังไม่มี error จากการโหลด order)
+
   if (router.isReady && loadingPage && !pageError) {
-    return <div className="p-6 text-center text-slate-500 dark:text-slate-400">กำลังโหลดข้อมูลคำสั่งซื้อ... (ID: {orderId || "N/A"})</div>;
+    return <LoadingSpinnerPage />;
   }
-  // ถ้ามี error จากการโหลดข้อมูลหน้า (pageError) และยังไม่มีข้อมูล order
+
   if (pageError && !order) {
-      return (
-        <div className="p-6 text-center">
-            <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-4">เกิดข้อผิดพลาด</h2>
-            <p className="text-slate-700 dark:text-slate-300 mb-6">{pageError}</p>
-            <Link href="/admin/orders" className={secondaryButtonClasses}>
-                <ArrowLeftIcon /> กลับไปหน้ารายการคำสั่งซื้อ
-            </Link>
-        </div>
-      );
+    return (
+      <div className="p-6 text-center">
+        <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-4">เกิดข้อผิดพลาด</h2>
+        <p className="text-slate-700 dark:text-slate-300 mb-6">{pageError}</p>
+        <Link href="/admin/orders" className={secondaryButtonClasses}>
+          <ArrowLeftIcon /> กลับไปหน้ารายการคำสั่งซื้อ
+        </Link>
+      </div>
+    );
   }
-  // ถ้าโหลดเสร็จแล้วแต่ไม่พบข้อมูล order (API คืน null หรือ data ไม่มี ID)
+
   if (!loadingPage && !order && router.isReady) {
-      return (
-        <div className="p-6 text-center">
-            <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">ไม่พบข้อมูลคำสั่งซื้อ</h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">ไม่พบคำสั่งซื้อสำหรับ ID: {orderId || "N/A"}</p>
-            <Link href="/admin/orders" className={secondaryButtonClasses}>
-                <ArrowLeftIcon /> กลับไปหน้ารายการคำสั่งซื้อ
-            </Link>
-        </div>
-      );
+    return (
+      <div className="p-6 text-center">
+        <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-200 mb-4">ไม่พบข้อมูลคำสั่งซื้อ</h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-6">ไม่พบคำสั่งซื้อสำหรับ ID: {orderId || "N/A"}</p>
+        <Link href="/admin/orders" className={secondaryButtonClasses}>
+          <ArrowLeftIcon /> กลับไปหน้ารายการคำสั่งซื้อ
+        </Link>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return <LoadingSpinnerPage />;
   }
 
   return (
@@ -156,40 +190,74 @@ const EditOrderPageContent = () => {
         <title>แก้ไขคำสั่งซื้อ #{order?.ID} - Admin Panel - {storeName}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
+
       <div className="mb-6">
         <Link href="/admin/orders" className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 group transition-colors">
-            <ArrowLeftIcon />
-            <span>กลับไปหน้ารายการคำสั่งซื้อ</span>
+          <ArrowLeftIcon />
+          <span>กลับไปหน้ารายการคำสั่งซื้อ</span>
         </Link>
       </div>
+
       <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 mb-8">
         รายละเอียดคำสั่งซื้อ: <span className="text-indigo-600 dark:text-indigo-400">#{order?.ID}</span>
       </h1>
       
-      {successMessage && <p className="mb-6 p-4 text-sm text-center text-green-700 bg-green-100 dark:text-green-200 dark:bg-green-900/30 rounded-lg shadow">{successMessage}</p>}
-      {formError && <p className="mb-6 p-4 text-sm text-center text-red-700 bg-red-100 dark:text-red-200 dark:bg-red-900/30 rounded-lg shadow">{formError}</p>}
+      {successMessage && (
+        <div className="mb-6 p-4 text-sm text-center text-green-700 bg-green-100 dark:text-green-200 dark:bg-green-900/30 rounded-lg shadow">
+          {successMessage}
+        </div>
+      )}
 
+      {formError && (
+        <div className="mb-6 p-4 text-sm text-center text-red-700 bg-red-100 dark:text-red-200 dark:bg-red-900/30 rounded-lg shadow">
+          {formError}
+        </div>
+      )}
 
-      {order && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Order Details Column (Left) */}
-          <div className="lg:col-span-2 space-y-6">
-            <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b dark:border-slate-700 pb-3">รายการสินค้า</h2>
-              <div className="space-y-4">
-                {order.order_items && order.order_items.length > 0 ? order.order_items.map(item => {
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Order Details Column (Left) */}
+        <div className="lg:col-span-2 space-y-6">
+          <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b dark:border-slate-700 pb-3">
+              รายการสินค้า
+            </h2>
+            <div className="space-y-4">
+              {order?.order_items && order.order_items.length > 0 ? (
+                order.order_items.map((item, idx) => {
                   const itemSubtotal = (item.price || 0) * (item.quantity || 0);
+                  const primaryImageObject = item.product?.images && item.product.images.length > 0 
+                                           ? item.product.images[0]
+                                           : null;
+                  const imageUrl = primaryImageObject 
+                                 ? `${baseApiUrl}/${primaryImageObject.path.replace(/^\.\//, '')}` 
+                                 : placeholderImageUrl;
+                  const productName = item.product?.name || 'Unknown Product';
+
                   return (
                     <div key={item.ID} className="flex items-start gap-4 py-3 border-b dark:border-slate-700 last:border-b-0">
-                      <div className="w-20 h-20 relative rounded-md overflow-hidden flex-shrink-0 bg-slate-200 dark:bg-slate-600">
-                        {item.product?.image_url ? (
-                            <Image src={item.product.image_url} alt={item.product?.name || "Product image"} fill style={{objectFit: 'cover'}} sizes="80px"/>
+                      <div className="w-20 h-20 relative rounded-md overflow-hidden flex-shrink-0 bg-slate-200 dark:bg-slate-600 flex items-center justify-center">
+                        {imageLoadErrors[item.ID] || imageUrl === placeholderImageUrl ? (
+                          <Image 
+                            src={placeholderImageUrl} 
+                            alt="Placeholder" 
+                            fill 
+                            className="object-contain p-1" 
+                          />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs">No Image</div>
+                          <Image 
+                            src={imageUrl} 
+                            alt={productName}
+                            fill 
+                            className="object-cover"
+                            sizes="(max-width: 640px) 20vw, 80px"
+                            onError={() => handleImageLoadError(item.ID)}
+                          />
                         )}
                       </div>
                       <div className="flex-grow">
-                        <p className="font-semibold text-slate-800 dark:text-slate-100" title={item.product?.name}>{item.product?.name || 'Unknown Product'}</p>
+                        <p className="font-semibold text-slate-800 dark:text-slate-100" title={productName}>
+                          {productName}
+                        </p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
                           ราคา: {item.price?.toLocaleString('th-TH')} บาท x {item.quantity}
                         </p>
@@ -199,85 +267,114 @@ const EditOrderPageContent = () => {
                       </p>
                     </div>
                   );
-                }) : (
-                  <p className="text-slate-500 dark:text-slate-400">ไม่พบรายการสินค้าในคำสั่งซื้อนี้</p>
-                )}
-              </div>
-            </section>
+                })
+              ) : (
+                <p className="text-slate-500 dark:text-slate-400">ไม่พบรายการสินค้า</p>
+              )}
+            </div>
+          </section>
 
-            {order.Address && ( // API ของคุณส่ง Address (ตัว A ใหญ่)
-                <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">ที่อยู่จัดส่ง</h3>
-                    <address className="not-italic text-sm text-slate-600 dark:text-slate-300 space-y-1">
-                        <p><strong>ผู้รับ:</strong> {order.Address.full_name}</p>
-                        <p>{order.Address.addressLine1}</p>
-                        {order.Address.addressLine2 && <p>{order.Address.addressLine2}</p>}
-                        <p>{order.Address.city}, {order.Address.province} {order.Address.zip_code}</p>
-                        <p>{order.Address.country}</p>
-                        <p><strong>โทร:</strong> {order.Address.phone}</p>
-                    </address>
-                </section>
-            )}
-          </div>
-
-          {/* Order Status & Actions Column (Right) */}
-          <div className="lg:col-span-1 space-y-6">
+          {order.Address && (
             <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b dark:border-slate-700 pb-3">สรุปคำสั่งซื้อ</h2>
-              <div className="space-y-2 text-sm">
-                <p className="flex justify-between"><span>User ID:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{order.user_id}</span></p>
-                <p className="flex justify-between"><span>วันที่สั่งซื้อ:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{new Date(order.CreatedAt).toLocaleDateString('th-TH')}</span></p>
-                <p className="flex justify-between"><span>ยอดรวม:</span> <strong className="text-lg text-indigo-600 dark:text-indigo-400">{order.total_price?.toLocaleString('th-TH', { style: 'currency', currency: 'THB' })}</strong></p>
-                <p className="flex justify-between"><span>สถานะปัจจุบัน:</span> <strong className="capitalize">{order.status}</strong></p>
-                {order.PaidAt && <p className="flex justify-between"><span>วันที่ชำระเงิน:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{new Date(order.PaidAt).toLocaleDateString('th-TH')}</span></p>}
-                {/* เพิ่ม payment_method ถ้ามีใน order object */}
-                {order.payment_method && <p className="flex justify-between"><span>วิธีชำระเงิน:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{order.payment_method}</span></p>}
-              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">ที่อยู่จัดส่ง</h3>
+              <address className="not-italic text-sm text-slate-600 dark:text-slate-300 space-y-1">
+                <p><strong>ผู้รับ:</strong> {order.Address.full_name}</p>
+                <p>{order.Address.addressLine1}</p>
+                {order.Address.addressLine2 && <p>{order.Address.addressLine2}</p>}
+                <p>{order.Address.city}, {order.Address.province} {order.Address.zip_code}</p>
+                <p>{order.Address.country}</p>
+                <p><strong>โทร:</strong> {order.Address.phone}</p>
+              </address>
             </section>
-
-            <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">อัปเดตสถานะคำสั่งซื้อ</h2>
-              <form onSubmit={handleStatusUpdate} className="space-y-4">
-                <div>
-                  <label htmlFor="status" className={labelClass}>เลือกสถานะใหม่:</label>
-                  <select 
-                    id="status" 
-                    name="status" 
-                    value={newStatus} 
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    disabled={isSubmitting}
-                    className={`${inputClass} cursor-pointer`}
-                  >
-                    {possibleStatuses.map(s => (
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                {formError && <p className="text-sm text-red-500 dark:text-red-400">{formError}</p>} {/* Error จากการ Submit อัปเดตสถานะ */}
-                <button 
-                    type="submit" 
-                    disabled={isSubmitting || newStatus === order.status} 
-                    className={`${primaryButtonClasses} w-full`}
-                >
-                  {isSubmitting ? <LoadingSpinnerIcon /> : null}
-                  {isSubmitting ? 'กำลังอัปเดต...' : 'อัปเดตสถานะ'}
-                </button>
-              </form>
-            </section>
-          </div>
+          )}
         </div>
-      )}
+
+        {/* Order Status & Actions Column (Right) */}
+        <div className="lg:col-span-1 space-y-6">
+          <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b dark:border-slate-700 pb-3">
+              สรุปคำสั่งซื้อ
+            </h2>
+            <div className="space-y-2 text-sm">
+              <p className="flex justify-between">
+                <span>User ID:</span> 
+                <span className="font-medium text-slate-700 dark:text-slate-200">{order.user_id}</span>
+              </p>
+              <p className="flex justify-between">
+                <span>วันที่สั่งซื้อ:</span> 
+                <span className="font-medium text-slate-700 dark:text-slate-200">
+                  {new Date(order.CreatedAt).toLocaleDateString('th-TH')}
+                </span>
+              </p>
+              <p className="flex justify-between">
+                <span>ยอดรวม:</span> 
+                <strong className="text-lg text-indigo-600 dark:text-indigo-400">
+                  {order.total_price?.toLocaleString('th-TH', { style: 'currency', currency: 'THB' })}
+                </strong>
+              </p>
+              <p className="flex justify-between">
+                <span>สถานะปัจจุบัน:</span> 
+                <strong className="capitalize">{order.status}</strong>
+              </p>
+              {order.PaidAt && (
+                <p className="flex justify-between">
+                  <span>วันที่ชำระเงิน:</span> 
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    {new Date(order.PaidAt).toLocaleDateString('th-TH')}
+                  </span>
+                </p>
+              )}
+              {order.payment_method && (
+                <p className="flex justify-between">
+                  <span>วิธีชำระเงิน:</span> 
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{order.payment_method}</span>
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">อัปเดตสถานะคำสั่งซื้อ</h2>
+            <form onSubmit={handleStatusUpdate} className="space-y-4">
+              <div>
+                <label htmlFor="status" className={labelClass}>เลือกสถานะใหม่:</label>
+                <select 
+                  id="status" 
+                  name="status" 
+                  value={newStatus} 
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  disabled={isSubmitting}
+                  className={`${inputClass} cursor-pointer`}
+                >
+                  {possibleStatuses.map(s => (
+                    <option key={s} value={s}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {formError && (
+                <p className="text-sm text-red-500 dark:text-red-400">{formError}</p>
+              )}
+              <button 
+                type="submit" 
+                disabled={isSubmitting || newStatus === order.status} 
+                className={`${primaryButtonClasses} w-full`}
+              >
+                {isSubmitting ? <LoadingSpinnerIcon /> : null}
+                {isSubmitting ? 'กำลังอัปเดต...' : 'อัปเดตสถานะ'}
+              </button>
+            </form>
+          </section>
+        </div>
+      </div>
     </>
   );
 };
 
-// --- Page Component หลัก และ getLayout ---
-// แก้ไขชื่อ Component หลักให้สื่อความหมาย
 const AdminOrderDetailPage = () => {
-  // อาจจะมีการตรวจสอบสิทธิ์ Admin เพิ่มเติมที่นี่ได้อีกชั้นถ้าต้องการ
-  // แต่ AuthContext และ Middleware ของ API ควรจะจัดการเรื่องนี้เป็นหลักแล้ว
   return <EditOrderPageContent />;
-}
+};
 
 AdminOrderDetailPage.getLayout = function getLayout(page) {
   return <AdminLayout title="รายละเอียดและแก้ไขคำสั่งซื้อ">{page}</AdminLayout>;

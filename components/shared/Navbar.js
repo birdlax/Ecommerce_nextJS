@@ -12,7 +12,7 @@ const Navbar = () => {
   const { user, isAuthenticated, logout, isLoading: authIsLoading, isAdmin } = useAuth(); // isAdmin ถูกดึงมา
   const { cartItemCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
-  const router = useRouter(); // <--- **Initialize useRouter**
+  const router = useRouter(); 
 
   // --- State สำหรับ Search ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,8 +101,8 @@ const Navbar = () => {
           {/* Logo */}
           <div className="flex-shrink-0 flex items-center">
             <Link href="/" className="flex items-center gap-2 group" onClick={() => { setIsMobileMenuOpen(false); setShowSearchInputMobile(false); }}>
-              <Image src="/images/store-dark.png" alt="Luxe Collections Logo Light" width={32} height={32} className="block dark:hidden group-hover:opacity-80 transition-opacity" />
-              <Image src="/images/store-white.png" alt="Luxe Collections Logo Dark" width={32} height={32} className="hidden dark:block group-hover:opacity-80 transition-opacity" />
+              <Image src="/images/store-white.png" alt="Luxe Collections Logo Light" width={32} height={32} className="block dark:hidden group-hover:opacity-80 transition-opacity" />
+              <Image src="/images/store-dark.png" alt="Luxe Collections Logo Dark" width={32} height={32} className="hidden dark:block group-hover:opacity-80 transition-opacity" />
               <span className="text-xl font-bold text-slate-800 dark:text-white hidden sm:block group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 LUXE COLLECTIONS
               </span>

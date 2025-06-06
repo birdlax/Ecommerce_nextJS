@@ -4,6 +4,12 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
     remotePatterns: [
+            {
+        protocol: 'http', // Protocol ที่ใช้ (http หรือ https)
+        hostname: '104.214.188.65', // IP Address ของ Server ที่เก็บรูป
+        port: '3000', // Port ของ Server ที่เก็บรูป
+        pathname: '/uploads/**', // Path เริ่มต้นของรูปภาพ (ใช้ ** เพื่ออนุญาตทุก path ย่อย)
+      },
       {
         protocol: 'http', // หรือ 'https' ถ้า API ของคุณใช้ HTTPS
         hostname: 'localhost',

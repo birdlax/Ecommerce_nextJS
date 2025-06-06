@@ -1,56 +1,59 @@
 // components/forms/ProductForm.js
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // สำหรับ Preview
+import Image from 'next/image';
 
 const ProductForm = ({
-    initialData = {},
-    onSubmit,
+    initialData = { name: '', description: '', price: 0, quantity: 0, category_id: '', images: [] },
+    onSubmit, // Callback: onSubmit(productDataObject, newImageFiles, pathsOfKeptExistingImages)
     isLoading,
     error,
     categories = [],
     loadingCategoriesForm, // สถานะการโหลด Categories จาก Page
-    submitButtonText = "บันทึกสินค้า",
+    isEditMode = false,
+    submitButtonText = "บันทึก",
     cancelLink = "/admin/products"
 }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: 0,
-    quantity: 0,
-    category_id: '', // จะเป็น string จาก value ของ select
+    name: initialData.name || '',
+    description: initialData.description || '',
+    price: initialData.price || 0,
+    quantity: initialData.quantity || 0,
+    category_id: initialData.category_id ? String(initialData.category_id) : '',
   });
 
-  const [imageFiles, setImageFiles] = useState([]); // เก็บ File objects ที่เลือกใหม่
-  const [imagePreviews, setImagePreviews] = useState([]); // เก็บ Data URLs สำหรับ preview
-  const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL || 'http://localhost:3000';
+  const [newImageFiles, setNewImageFiles] = useState([]); // File objects ใหม่ที่ผู้ใช้เลือก
+  const [newImagePreviews, setNewImagePreviews] = useState([]); // Blob URLs สำหรับ preview รูปใหม่
 
-  // Effect to pre-fill form data and image previews
+  // สำหรับ Edit Mode: เก็บรูปภาพเดิมที่ "ยังคงอยู่" (ยังไม่ได้ถูกลบโดย User)
+  // แต่ละ object คือ { ID: number, path: string }
+  const [keptExistingImages, setKeptExistingImages] = useState([]);
+
+  const baseApiUrl = process.env.NEXT_PUBLIC_GOLANG_API_URL  ;
+
+  // Effect to pre-fill form data and manage image states when initialData changes (for Edit mode)
   useEffect(() => {
-    // Pre-fill text data from initialData
     setFormData({
         name: initialData.name || '',
         description: initialData.description || '',
         price: initialData.price || 0,
         quantity: initialData.quantity || 0,
-        category_id: initialData.category_id ? String(initialData.category_id) : 
-                        (categories.length > 0 && !loadingCategoriesForm && !initialData.category_id ? '' : (initialData.category_id ? String(initialData.category_id) : '')),
+        category_id: initialData.category_id ? String(initialData.category_id) :
+                        (categories.length > 0 && !loadingCategoriesForm && !initialData.category_id ? '' : String(initialData.category_id || '')),
     });
 
-    // Pre-fill existing images for Edit mode
-    if (initialData.images && Array.isArray(initialData.images) && initialData.images.length > 0) {
-        const previews = initialData.images.map(img =>
-            `${baseApiUrl}/${img.path.replace(/^\.\//, '')}`
-        );
-        setImagePreviews(previews);
-        setImageFiles([]); // Clear any newly selected files if initialData is loaded (for edit)
+    if (isEditMode && initialData.images && Array.isArray(initialData.images)) {
+        setKeptExistingImages(initialData.images); // เริ่มต้นด้วยรูปภาพเดิมทั้งหมด
     } else {
-        // Reset for Add New mode or if no initial images
-        setImagePreviews([]);
-        setImageFiles([]);
+        setKeptExistingImages([]);
     }
-  }, [initialData, categories, loadingCategoriesForm, baseApiUrl]);
 
+    // Clear new image selections and their previews when initialData changes
+    newImagePreviews.forEach(url => URL.revokeObjectURL(url));
+    setNewImagePreviews([]);
+    setNewImageFiles([]);
+
+  }, [initialData, categories, loadingCategoriesForm, isEditMode]); // Removed baseApiUrl as it's constant within component lifecycle
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -60,53 +63,84 @@ const ProductForm = ({
     }));
   };
 
-  const handleImageChange = (e) => {
+  const handleNewImageChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files);
-      const MAX_FILES = 5; 
-      if (filesArray.length > MAX_FILES) {
-         alert(`คุณสามารถอัปโหลดรูปภาพได้สูงสุด ${MAX_FILES} รูปต่อครั้ง`);
-         e.target.value = null;
+      const MAX_FILES_UPLOAD = 5; // Max new files user can select at once
+      const MAX_TOTAL_IMAGES = 5; // Overall limit for product images
+
+      if (filesArray.length > MAX_FILES_UPLOAD) {
+         alert(`คุณสามารถเลือกอัปโหลดรูปภาพใหม่ได้สูงสุด ${MAX_FILES_UPLOAD} รูปต่อครั้ง`);
+         e.target.value = null; // Clear selected files from input
          return;
       }
-      setImageFiles(filesArray);
-      imagePreviews.filter(url => url.startsWith('blob:')).forEach(url => URL.revokeObjectURL(url));
-      const newPreviewsArray = filesArray.map(file => URL.createObjectURL(file));
-      setImagePreviews(newPreviewsArray);
-    } else {
-      setImageFiles([]);
-      imagePreviews.filter(url => url.startsWith('blob:')).forEach(url => URL.revokeObjectURL(url));
-      // Revert to initial images if selection is cleared (for edit mode)
-      const existingImageUrls = initialData?.images?.map(img => `${baseApiUrl}/${img.path.replace(/^\.\//, '')}`) || [];
-      setImagePreviews(existingImageUrls);
+      // Check total images if combined with existing ones (only if in edit mode)
+      if (isEditMode && (keptExistingImages.length + filesArray.length > MAX_TOTAL_IMAGES)) {
+        alert(`สินค้าสามารถมีรูปภาพได้สูงสุด ${MAX_TOTAL_IMAGES} รูป (รวมรูปเดิมและรูปใหม่). ปัจจุบันมีรูปเดิม ${keptExistingImages.length} รูป`);
+        e.target.value = null;
+        return;
+      }
+
+
+      setNewImageFiles(filesArray);
+
+      // Cleanup old blob previews before creating new ones
+      newImagePreviews.forEach(url => URL.revokeObjectURL(url));
+
+      const previewsArray = filesArray.map(file => URL.createObjectURL(file));
+      setNewImagePreviews(previewsArray);
+    } else { // If user cancels file selection
+      newImagePreviews.forEach(url => URL.revokeObjectURL(url));
+      setNewImagePreviews([]);
+      setNewImageFiles([]);
     }
   };
 
+  // Handler for "removing" an existing image from the UI (in Edit Mode)
+  const handleDeleteExistingImage = (imagePathOrIdToDelete) => {
+    if (window.confirm("คุณต้องการลบรูปภาพนี้ (เมื่อบันทึก) ใช่หรือไม่?")) {
+        setKeptExistingImages(prev => prev.filter(img =>
+            (img.ID ? String(img.ID) : img.path) !== String(imagePathOrIdToDelete)
+        ));
+    }
+  };
+
+  // Cleanup Object URLs for new image previews when component unmounts or previews change
   useEffect(() => {
     return () => {
-      imagePreviews.forEach(url => { if (url.startsWith('blob:')) { URL.revokeObjectURL(url); } });
+      newImagePreviews.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [imagePreviews]);
+  }, [newImagePreviews]); // Run when newImagePreviews change (for blobs)
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.category_id) { 
-        alert("กรุณาเลือกหมวดหมู่สินค้า"); 
-        return; 
-    }
-    // For Add New mode, require images. For Edit mode, new images are optional.
-    if (imageFiles.length === 0 && (!initialData || Object.keys(initialData).length === 0 || !initialData.images || initialData.images.length === 0)) {
-        alert("กรุณาอัปโหลดรูปภาพสินค้าอย่างน้อย 1 รูป");
+    if (!formData.category_id) {
+        alert("กรุณาเลือกหมวดหมู่สินค้า");
         return;
     }
+
+    const totalFinalImages = keptExistingImages.length + newImageFiles.length;
+    if (totalFinalImages === 0) {
+        alert("สินค้าต้องมีรูปภาพอย่างน้อย 1 รูป");
+        return;
+    }
+    if (totalFinalImages > 5) { // Re-validate max images
+        alert(`สินค้าสามารถมีรูปภาพได้สูงสุด 5 รูป ปัจจุบันคุณมี ${totalFinalImages} รูป (รวมรูปเดิมและรูปใหม่)`);
+        return;
+    }
+
     const dataToSubmit = {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price) || 0,
-      quantity: parseInt(formData.quantity, 10) || 0,
-      category_id: parseInt(formData.category_id, 10),
+      quantity: parseInt(String(formData.quantity), 10) || 0, // Ensure quantity is a number
+      category_id: parseInt(String(formData.category_id), 10),
     };
-    onSubmit(dataToSubmit, imageFiles); 
+
+    const pathsOfKeptExistingImages = keptExistingImages.map(img => img.path);
+
+    console.log("[ProductForm] Submitting. ProductData:", dataToSubmit, "New Files:", newImageFiles, "Kept Existing Paths:", pathsOfKeptExistingImages);
+    onSubmit(dataToSubmit, newImageFiles, pathsOfKeptExistingImages);
   };
 
   // CSS Class Variables
@@ -139,13 +173,13 @@ const ProductForm = ({
         </div>
          <div>
             <label htmlFor="category_id" className={labelClass}>หมวดหมู่<span className="text-red-500 ml-1">*</span></label>
-            <select 
-                name="category_id" 
-                id="category_id" 
-                required 
-                value={formData.category_id} 
-                onChange={handleChange} 
-                disabled={isLoading || loadingCategoriesForm || !categories || categories.length === 0} 
+            <select
+                name="category_id"
+                id="category_id"
+                required
+                value={formData.category_id}
+                onChange={handleChange}
+                disabled={isLoading || loadingCategoriesForm || !categories || categories.length === 0}
                 className={`${inputClass} cursor-pointer`}
             >
                 <option value="" disabled={!!formData.category_id && formData.category_id !== ''}>
@@ -159,38 +193,77 @@ const ProductForm = ({
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ไม่พบหมวดหมู่สินค้าในระบบ กรุณาเพิ่มหมวดหมู่ก่อน</p>
             )}
         </div>
+
+        {/* Image Upload Section */}
         <div>
-            <label htmlFor="images" className={labelClass}>
-                รูปภาพสินค้า (เลือกได้หลายรูป)
-                {(!initialData?.images?.length && (!imageFiles || imageFiles.length === 0)) && <span className="text-red-500 ml-1">*</span>}
+            {/* Display EXISTING images in Edit Mode */}
+            {isEditMode && keptExistingImages.length > 0 && (
+                <div className="mb-4">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">รูปภาพปัจจุบัน (คลิก ✕ เพื่อลบรูปภาพนี้):</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                        {keptExistingImages.map((img, index) => (
+                            <div key={img.ID || img.path || index} className="relative group aspect-square rounded-md overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
+                                <Image
+                                    src={`${baseApiUrl}/${img.path.replace(/^\.\//, '')}`}
+                                    alt={`รูปภาพปัจจุบัน ${index + 1}`}
+                                    fill
+                                    style={{objectFit:"cover"}}
+                                    sizes="100px"
+                                    onError={(e) => { e.target.style.display = 'none'; /* Hide broken image */ }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteExistingImage(img.ID || img.path)}
+                                    className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-xs leading-none flex items-center justify-center w-5 h-5 z-10"
+                                    aria-label="ลบรูปภาพนี้"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <label htmlFor="new_images" className={labelClass}>
+                {isEditMode ? (keptExistingImages.length + newImageFiles.length < 5 ? "อัปโหลดรูปภาพใหม่/เพิ่มเติม:" : "จำนวนรูปภาพครบแล้ว (สูงสุด 5 รูป)") : "รูปภาพสินค้า (เลือกได้หลายรูป):"}
+                {(!isEditMode && newImageFiles.length === 0) && <span className="text-red-500 ml-1">*</span>}
+                {(isEditMode && keptExistingImages.length === 0 && newImageFiles.length === 0) && <span className="text-red-500 ml-1">*</span>}
             </label>
             <input
                 type="file"
-                name="images"
-                id="images"
+                name="new_images"
+                id="new_images"
                 multiple
-                onChange={handleImageChange}
-                disabled={isLoading}
+                onChange={handleNewImageChange}
+                disabled={isLoading || (isEditMode && keptExistingImages.length + newImageFiles.length >= 5)}
                 className={fileInputClass}
                 accept="image/png, image/jpeg, image/webp"
             />
-            {/* Image Previews (แสดงรูปที่เลือกใหม่ หรือรูปเดิมถ้ายังไม่ได้เลือกใหม่) */}
-            {imagePreviews.length > 0 && (
-                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {imagePreviews.map((previewUrl, index) => (
-                        <div key={previewUrl} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
-                            <Image 
-                                src={previewUrl} 
-                                alt={`Preview ${index + 1}`} 
-                                fill 
-                                style={{objectFit:"cover"}} 
-                                sizes="100px" 
-                                onError={(e) => { e.target.style.display = 'none'; /* Hide broken image */ }}
-                            />
-                        </div>
-                    ))}
+            
+            {newImageFiles.length > 0 && (
+                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    เลือกแล้ว {newImageFiles.length} รูปภาพใหม่
+                    {isEditMode && ` (รวมกับรูปเดิมเป็น ${keptExistingImages.length + newImageFiles.length} รูป)`}
+                </p>
+            )}
+
+            {/* Previews for NEWLY selected images (blob URLs) */}
+            {newImagePreviews.length > 0 && (
+                <div className="mt-3">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">รูปภาพที่เลือกใหม่ (จะถูกอัปโหลด):</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                        {newImagePreviews.map((previewUrl, index) => (
+                            <div key={previewUrl} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
+                                <Image src={previewUrl} alt={`Preview ${index + 1}`} fill style={{objectFit:"cover"}} sizes="100px" />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
+             {isEditMode && keptExistingImages.length === 0 && newImageFiles.length === 0 && (
+                 <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">ไม่มีรูปภาพปัจจุบัน กรุณาอัปโหลดรูปภาพใหม่</p>
+             )}
         </div>
 
         {error && <p className="text-sm text-center text-red-600 dark:text-red-400 py-2 px-3 bg-red-50 dark:bg-red-900/30 rounded-md shadow">{error}</p>}
@@ -204,5 +277,4 @@ const ProductForm = ({
     </form>
   );
 };
-
 export default ProductForm;

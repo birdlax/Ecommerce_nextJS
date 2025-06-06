@@ -1,4 +1,4 @@
-// pages/order.js
+// pages/checkout.js
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';

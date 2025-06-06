@@ -2,7 +2,7 @@
 
 // สมมติว่าคุณมี fetchApi helper กลาง ที่จัดการเรื่อง auth/credentials
 // และ API_URL ถูก define ในนั้น หรือใน environment variables ที่ fetchApi เข้าถึงได้
-import { fetchApi } from './authService'; // หรือ path ที่ถูกต้อง เช่น '@/utils/authService'
+import { fetchApi } from './authService';
 
 /**
  * (Admin) ดึงข้อมูลสินค้าทั้งหมด
@@ -42,12 +42,60 @@ export const adminGetProductById = async (productId) => {
  * (Admin) อัปเดตข้อมูลสินค้า
  * API: PUT /admin/product/:id
  */
-export const adminUpdateProduct = async (productId, productData) => {
-  if (!productId) throw new Error('Product ID is required for update');
-  console.log(`[adminProductService] Admin: Updating product ID: ${productId}`, productData);
+export const adminUpdateProduct = async (productId, productData, newImageFiles, keepImagePaths = []) => {
+  console.log(`[adminProductService] Updating product ID: ${productId}`);
+  console.log('[adminProductService] Product Data:', productData);
+  if (newImageFiles && newImageFiles.length > 0) {
+    console.log('[adminProductService] New Image Files:', newImageFiles);
+  }
+  if (keepImagePaths && keepImagePaths.length > 0) {
+    console.log('[adminProductService] Paths of existing images to keep:', keepImagePaths);
+  }
+
+  const formData = new FormData();
+  formData.append('name', productData.name || '');
+  formData.append('description', productData.description || '');
+  formData.append('price', String(productData.price || 0));
+  formData.append('quantity', String(productData.quantity || 0));
+  formData.append('category_id', String(productData.category_id || ''));
+
+  // Append new image files (ถ้ามี)
+  // Backend API PUT /admin/product/:id จะต้องสามารถรับ field 'images' สำหรับไฟล์ใหม่ได้
+  if (newImageFiles && newImageFiles.length > 0) {
+    for (let i = 0; i < newImageFiles.length; i++) {
+      const file = newImageFiles[i];
+      if (file instanceof File) {
+        formData.append('images', file, file.name); // ใช้ 'images' ตาม Postman example
+      }
+    }
+  }
+
+  // Append paths of existing images to keep
+  // Backend จะต้องมี Logic ในการอ่านค่านี้และจัดการ (เช่น ไม่ลบรูปเหล่านี้)
+  if (keepImagePaths && keepImagePaths.length > 0) {
+    keepImagePaths.forEach(imgPath => {
+      formData.append('keep_images', imgPath); // ส่งเป็น array โดย append ซ้ำๆ ด้วย key เดียวกัน
+                                                // หรือถ้า Backend คาดหวัง keep_images[] ก็ใช้ชื่อนั้น
+    });
+  } else if (isEditMode && (!newImageFiles || newImageFiles.length === 0)) {
+    // ถ้าเป็น Edit Mode และไม่มีรูปใหม่ที่อัปโหลด และไม่มีรูปเดิมที่เลือกเก็บไว้เลย
+    // อาจจะต้องส่ง field พิเศษบอก Backend ว่าให้ลบรูปทั้งหมด หรือ Backend มี default logic
+    // ในกรณีนี้ ถ้า keepImagePaths ว่าง และไม่มี newImageFiles อาจจะหมายความว่าลบรูปทั้งหมด
+    // หรือถ้าต้องการให้มีรูปเสมอ อาจจะต้องมี validation ที่ Frontend
+    // ถ้า API ของคุณต้องการให้ส่ง keep_images แม้จะเป็น array ว่าง ก็อาจจะ:
+    // formData.append('keep_images', ''); // หรือวิธีที่ Backend กำหนดสำหรับ array ว่าง
+  }
+
+
+  console.log('[adminProductService] FormData for update (before send):');
+  for (let pair of formData.entries()) {
+    console.log(`  Key: ${pair[0]}, Value: ${pair[1] instanceof File ? pair[1].name : pair[1]}`);
+  }
+
   return fetchApi(`/admin/product/${productId}`, {
     method: 'PUT',
-    body: JSON.stringify(productData),
+    body: formData,
+    // ไม่ต้องตั้ง Content-Type header
   });
 };
 
