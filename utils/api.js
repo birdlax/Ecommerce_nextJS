@@ -17,7 +17,7 @@ export async function fetchApi(endpoint, options = {}) {
     defaultHeaders["Content-Type"] = "application/json";
   }
 
-  // --- สิ้นสุดการแก้ไขส่วน Headers ---
+  // --- สิ้นสุดการแก้ไขส่วน Headers --- Test
 
 
   const headers = {
