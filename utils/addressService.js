@@ -1,7 +1,7 @@
 // utils/addressService.js (หรือชื่ออื่นที่เหมาะสม)
 
 
-import { fetchApi } from './authService';
+import { fetchApi } from './api';
 
 
 export const getUserAddresses = async () => {
